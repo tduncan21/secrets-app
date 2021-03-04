@@ -28,7 +28,8 @@ mongoose.set('useCreateIndex', true);
 const userSchema = new mongoose.Schema({
     username: String,
     password: String,
-    googleId: String
+    googleId: String,
+    secret: String
 });
 
 userSchema.plugin(passportLocalMongoose, {usernameField: "username"});
@@ -60,7 +61,6 @@ passport.use(new GoogleStrategy({
     });
   }
 ));
-
 
 app.get("/", (req, res) => {
     res.render("home");
@@ -111,17 +111,43 @@ app.route("/register")
         })
     });
 
+app.route("/submit")
+    .get((req, res) => {
+        if(req.isAuthenticated()) {
+            res.render("submit");
+        } else {
+            res.redirect("/login");
+        }
+    })
+    .post((req, res) => {
+        const newSecret = req.body.secret;
+        User.findById(req.user.id, (err, foundUser) => {
+            if(!err) {
+                if(foundUser) {
+                    foundUser.secret = newSecret;
+                    foundUser.save(() => {
+                        res.redirect("/secrets");
+                    })
+                }
+            } else {
+                console.log(err);
+            }
+        })
+    })
+
 app.get("/logout", (req, res) => {
     req.logout();
     res.redirect("/");
 })
 
 app.get("/secrets", (req, res) => {
-    if(req.isAuthenticated()) {
-        res.render("secrets");
-    } else {
-        res.redirect("/login");
-    }
+    User.find({"secret": {$ne:null}}, (err, results) => {
+        if(!err) {
+            res.render("secrets", {users: results});
+        } else {
+            console.log(err);
+        }
+    })
 });
 
 app.get("/auth/google/secrets", 
